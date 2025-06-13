@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teachable Machine Image Model</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        #container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 500px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            margin: 10px 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #218838;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        #webcam {
+            width: 200px;
+            height: 200px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 20px auto;
+            background-color: #eee;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-style: italic;
+        }
+
+        #label-container div {
+            margin: 8px 0;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 6px;
+            font-weight: bold;
+            text-align: left;
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #label-container .highlight {
+            background-color: #d4edda; /* Light green for highlight */
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+
+        #message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            background-color: #e0f2f7;
+            color: #007bff;
+        }
+
+        #message.error {
+            background-color: #f8d7da;
+            color: #dc3545;
+        }
+
+        #message.success {
+            background-color: #d4edda;
+            color: #28a745;
+        }
+
+        #resultDisplay {
+            margin-top: 25px;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #f0f8ff;
+            border: 1px solid #cce5ff;
+            text-align: left;
+            min-height: 80px; /* เพิ่มความสูงขั้นต่ำ */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        #resultDisplay h4 {
+            margin-top: 0;
+            color: #0056b3;
+            font-size: 1.2em;
+        }
+
+        #resultDisplay p {
+            margin-bottom: 0;
+            color: #555;
+            line-height: 1.5;
+        }
+
+        #resultDisplay.info-message {
+            background-color: #fff3cd;
+            border-color: #ffeeba;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <h1>Doctor NGOH</h1>
+        <div id="message" class="message">คลิก "เริ่มการจำแนก" เพื่อเริ่มต้น</div>
+        <button type="button" id="startButton">เริ่มการจำแนก</button>
+        <button type="button" id="stopButton" disabled>หยุดการจำแนก</button>
+        
+        <div id="webcam">
+            <p>กล้องจะปรากฏที่นี่</p>
+        </div>
+        
+        <div id="label-container"></div>
+        
+        <div id="resultDisplay">
+            <p>ผลลัพธ์การจำแนกจะแสดงที่นี่</p>
+        </div>
+    </div>
+
+    <script src="AI.js"></script>
+    </body>
+</html>
