@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Teachable Machine Image Model</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script> 
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script> 
+
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -26,43 +27,95 @@
 
         #container {
             background-color: #ffffff;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+            padding: 50px;
+            border-radius: 50px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
             text-align: center;
             width: 90%;
-            max-width: 500px;
+            max-width: 840px;
             box-sizing: border-box;
         }
 
         button {
-            background-color: #28a745;
-            color: white;
-            padding: 12px 25px;
+            background-color: transparent;
+            color: inherit;
+            padding: 0; /* ลบ padding ออกไป */
             border: none;
             border-radius: 8px;
             cursor: pointer;
             font-size: 1.1em;
-            margin: 10px 5px;
-            transition: background-color 0.3s ease;
+            margin: 40px 350px;
+            transition: background-color 0.3s ease, transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: auto; /* ให้ขนาดตามเนื้อหา (ในกรณีที่ไม่มีรูปภาพ) */
+            width: auto; /* ให้ขนาดตามเนื้อหา (ในกรณีที่ไม่มีรูปภาพ) */
+
+            /* ถ้าคุณทราบขนาดแน่นอนของรูปภาพ สามารถกำหนดขนาดคงที่ได้ */
+            width: 60px; /* ตัวอย่าง: ขนาดรูปภาพ */
+            height: 60px; /* ตัวอย่าง: ขนาดรูปภาพ */
+        }
+        #infoButtons {
+    background-color: transparent;
+            color: inherit;
+            padding: 0; /* ลบ padding ออกไป */
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            margin: 40px 350px;
+            transition: background-color 0.3s ease, transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: auto; /* ให้ขนาดตามเนื้อหา (ในกรณีที่ไม่มีรูปภาพ) */
+            width: auto; /* ให้ขนาดตามเนื้อหา (ในกรณีที่ไม่มีรูปภาพ) */
+
+            /* ถ้าคุณทราบขนาดแน่นอนของรูปภาพ สามารถกำหนดขนาดคงที่ได้ */
+            width: 60px; /* ตัวอย่าง: ขนาดรูปภาพ */
+            height: 60px; /* ตัวอย่าง: ขนาดรูปภาพ */
+        }
+        #infoButtons button {
+    margin: 5px; /* ระยะห่างระหว่างปุ่ม */
+        }
+        /* ปุ่มที่มีรูปภาพ */
+        button img {
+            width: 200px; /* กำหนดขนาดรูปภาพ */
+            height: 200px; /* กำหนดขนาดรูปภาพ */
+            object-fit: contain;
+            transition: all 0.3s ease;
         }
 
-        button:hover:not(:disabled) {
-            background-color: #218838;
+        /* เอฟเฟกต์เมื่อเม้าชี้ */
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
+        /* เอฟเฟกต์เมื่อกด */
+        button:active {
+            transform: scale(0.98);
+            box-shadow: 0 8px 9px rgba(0, 0, 0, 0.2);
+        }
+
+        /* ขยายรูปเมื่อเม้าชี้ */
+        button:hover img {
+            transform: scale(1.1);
+        }
+
+        /* ยุบรูปเล็กน้อยเมื่อกด */
+        button:active img {
+            transform: scale(0.98);
         }
 
         #webcam {
             width: 200px;
-            height: 200px;
+            height: 400px;
             border: 2px solid #ddd;
             border-radius: 8px;
             overflow: hidden;
-            margin: 20px auto;
+            margin: 25px auto;
             background-color: #eee;
             display: flex;
             align-items: center;
@@ -71,11 +124,15 @@
             font-style: italic;
         }
 
+        #label-container {
+            display: none; /* ซ่อนส่วนนี้ */
+        }
+
         #label-container div {
             margin: 8px 0;
             padding: 10px;
             background-color: #e9ecef;
-            border-radius: 6px;
+            border-radius: 9px;
             font-weight: bold;
             text-align: left;
             position: relative;
@@ -85,8 +142,8 @@
         }
 
         #label-container .highlight {
-            background-color: #d4edda; /* Light green for highlight */
-            border: 2px solid #28a745;
+            background-color: #d4edda;
+            border: 3px solid #28a745;
             color: #155724;
         }
 
@@ -112,16 +169,16 @@
         #resultDisplay {
             margin-top: 25px;
             padding: 15px;
-            border-radius: 8px;
+            border-radius:58px;
             background-color: #f0f8ff;
             border: 1px solid #cce5ff;
             text-align: left;
-            min-height: 80px; /* เพิ่มความสูงขั้นต่ำ */
+            min-height: 80px;
             display: flex;
             flex-direction: column;
             justify-content: center;
         }
-        
+
         #resultDisplay h4 {
             margin-top: 0;
             color: #0056b3;
@@ -134,31 +191,96 @@
             line-height: 1.5;
         }
 
-        #resultDisplay.info-message {
-            background-color: #fff3cd;
-            border-color: #ffeeba;
-            color: #856404;
+        #actionButtons {
+            margin-top: 10px;
+        }
+
+        #actionButtons button {
+            margin-bottom: 10px;
+        }
+
+        #actionButtons.hidden {
+            display: none;
+        }
+
+        #infoButtons {
+            margin-top: 10px;
+        }
+
+        #infoButtons button {
+            margin: 5px;
+        }
+        #infoButtons {
+            margin-left:410px;
+        }
+
+        #infoButtons button {
+            margin-right:  150px;
+        }
+
+        #infoButtons.hidden {
+            display: none;
         }
     </style>
 </head>
 <body>
     <div id="container">
-        <h1>Doctor NGOH</h1>
-        <div id="message" class="message">คลิก "เริ่มการจำแนก" เพื่อเริ่มต้น</div>
-        <button type="button" id="startButton">เริ่มการจำแนก</button>
-        <button type="button" id="stopButton" disabled>หยุดการจำแนก</button>
-        
+        <h1>
+            <img src="2.png" alt="Logo" style="width: 220px; vertical-align: middle;">
+        </h1>
+
         <div id="webcam">
             <p>กล้องจะปรากฏที่นี่</p>
         </div>
-        
+
+        <div id="message" class="message">คลิก "เริ่มการจำแนก" เพื่อเริ่มต้น</div>
+
+        <div id="actionButtons">
+            <button type="button" id="startButton">
+                <img src="7.png" alt="เริ่มการจำแนก">
+            </button>
+            <button type="button" id="stopButton" disabled>
+                <img src="9.png" alt="หยุดการจำแนก">
+            </button>
+            <button type="button" id="switchCameraButton" disabled>
+                <img src="10.png" alt="สลับกล้อง">
+            </button>
+        </div>
+
+        <!-- ปุ่มสาเหตุและรักษา -->
+        <div id="infoButtons" class="hidden">
+            <button type="button" id="causeButton" aria-label="แสดงสาเหตุ">
+                <img src="3.png" alt="สาเหตุ">
+            </button>
+            <button type="button" id="treatmentButton" aria-label="แสดงวิธีรักษา">
+                <img src="4.png" alt="รักษา">
+            </button>
+        </div>
+
+        <!-- ซ่อนส่วนนี้ -->
         <div id="label-container"></div>
-        
+
         <div id="resultDisplay">
             <p>ผลลัพธ์การจำแนกจะแสดงที่นี่</p>
         </div>
     </div>
 
+    <!-- AI.js จะต้องเขียนเองหรือโหลดจากไฟล์จริง -->
     <script src="AI.js"></script>
-    </body>
+    <script>
+        // ตรวจสอบว่า AI.js ถูกโหลดหรือไม่
+        if (typeof tmImage === 'undefined') {
+            console.error('AI.js ไม่ถูกโหลด กรุณาตรวจสอบเส้นทางไฟล์');
+        } else {
+            console.log('AI.js ถูกโหลดเรียบร้อยแล้ว');
+        }
+
+        // เรียกใช้ฟังก์ชัน init() จาก AI.js
+        if (typeof init === 'function') {
+            init();
+        } else {
+            console.error('ฟังก์ชัน init() ไม่ถูกกำหนดใน AI.js');
+        }
+    </script>
+</body>
 </html>

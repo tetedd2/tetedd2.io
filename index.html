@@ -1,2 +1,70 @@
-<h1>สวัสดีจาก GitHub Pages</h1>
-<a href="AI.html" target="_blank">เปิดไฟล์ <Ai class="h"></Ai>html</a>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>หน้าหลัก Doctor NGOH</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh; /* ทำให้หน้าจอกลางแนวตั้ง */
+            margin: 0;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+
+        #container {
+            background-color: #ffffff;
+            padding: 90px 90px; /* เพิ่ม padding ให้ดูดีขึ้น */
+            border-radius: 12px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 400px; /* กำหนดความกว้างสูงสุด */
+            box-sizing: border-box;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px; /* เพิ่มระยะห่างด้านล่างของหัวข้อ */
+            font-size: 2.5em; /* ทำให้หัวข้อใหญ่ขึ้น */
+        }
+
+        .button-link {
+            display: inline-block; /* ทำให้เป็นบล็อกเพื่อกำหนด padding/margin ได้ */
+            background-color: #007bff; /* สีน้ำเงิน */
+            color: white;
+            padding: 15px 30px; /* ขนาดปุ่ม */
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.2em; /* ขนาดตัวอักษรในปุ่ม */
+            text-decoration: none; /* ลบเส้นใต้ลิงก์ */
+            transition: background-color 0.3s ease, transform 0.2s ease; /* เพิ่ม transition */
+        }
+
+        .button-link:hover {
+            background-color: #0056b3; /* สีเข้มขึ้นเมื่อเมาส์ชี้ */
+            transform: translateY(-2px); /* ปุ่มขยับขึ้นเล็กน้อยเมื่อเมาส์ชี้ */
+        }
+
+        .button-link:active {
+            transform: translateY(0); /* ปุ่มกลับมาตำแหน่งเดิมเมื่อคลิก */
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <h1>
+            <img src="2.png" alt="Logo" style="width: 250px; vertical-align: middle; margin-right: 10px;"> 
+            <br>คลิกเพื่อเริ่มการวิเคราะห์โรค
+ </h1>
+        
+        <a href="AI.html" target="_blank" class="button-link">เปิดใช้งาน DR. NGOH</a>
+    </div>
+</body>
+</html>

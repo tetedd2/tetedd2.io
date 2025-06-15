@@ -1,243 +1,333 @@
-// **สำคัญ: แก้ไข URL นี้ให้ตรงกับโมเดลของคุณจาก Teachable Machine**
-// ถ้าคุณ Upload โมเดลไป Cloud:
-const URL = "https://teachablemachine.withgoogle.com/models/GAu0Um0vr/";
-// แทน YOUR_MODEL_ID ด้วย ID จริงๆ ของโมเดลคุณ เช่น "https://teachablemachine.withgoogle.com/models/asdfghjkl/"
 
-// ถ้าคุณ Download โมเดลมาแล้ววางไว้ในโฟลเดอร์ my-model/:
-// const URL = "./my-model/";
+// กำหนด URL ของโมเดล Teachable Machine
+const URL = "https://teachablemachine.withgoogle.com/models/GAu0Um0vr/";  
+let model, labelContainer, maxPredictions;
+let isPredicting = false;
+let currentFacingMode = 'environment'; // เริ่มต้นใช้กล้องหลัง
+let videoElement;
+let stream;
 
-let model, webcam, labelContainer, maxPredictions;
-let isPredicting = false; // สถานะเพื่อควบคุม loop การทำนาย
+// อ้างอิง DOM Elements
 const messageElement = document.getElementById('message');
 const startButton = document.getElementById('startButton');
 const stopButton = document.getElementById('stopButton');
-const resultDisplayElement = document.getElementById('resultDisplay'); // เพิ่ม Element สำหรับแสดงข้อมูลเพิ่มเติม
+const switchCameraButton = document.getElementById('switchCameraButton');
+const resultDisplayElement = document.getElementById('resultDisplay');
+const actionButtonsDiv = document.getElementById('actionButtons');
+const infoButtonsDiv = document.getElementById('infoButtons');
+const causeButton = document.getElementById('causeButton');
+const treatmentButton = document.getElementById('treatmentButton');
 
-// *******************************************************************
-// ** เพิ่มตัวแปรสำหรับ Logic การจับเวลาและการแสดงผลตามเงื่อนไข **
-// *******************************************************************
-let predictionHistory = []; // เก็บประวัติการทำนาย (เช่น 5 วินาทีล่าสุด)
-const REQUIRED_CONSISTENCY_TIME_MS = 5000; // 5 วินาที
+// Logic สำหรับจับเวลาและการแสดงผลตามความน่าจะเป็น
+let predictionHistory = [];
+const REQUIRED_CONSISTENCY_TIME_MS = 2000; // 2 วินาที
 const REQUIRED_PROBABILITY = 0.9; // 90%
 
-// ฟังก์ชันเริ่มต้น (ถูกเรียกเมื่อกดปุ่ม "เริ่มการจำแนก")
+// ฟังก์ชันแสดง/ซ่อนปุ่มสาเหตุและรักษา
+function toggleInfoButtons(show) {
+    if (show) {
+        infoButtonsDiv.classList.remove('hidden');
+        actionButtonsDiv.classList.add('hidden');
+    } else {
+        infoButtonsDiv.classList.add('hidden');
+        actionButtonsDiv.classList.remove('hidden');
+    }
+}
+
+// ฟังก์ชันเริ่มต้นเมื่อกด "เริ่มการจำแนก"
 async function init() {
     messageElement.textContent = 'กำลังโหลดโมเดลและตั้งค่ากล้อง...';
     messageElement.className = 'message';
-    startButton.disabled = true; // ปิดปุ่ม Start ชั่วคราว
-    stopButton.disabled = true; // ปิดปุ่ม Stop ชั่วคราวในระหว่าง init
-    resultDisplayElement.innerHTML = ''; // ล้างข้อมูลผลลัพธ์เก่า
+    startButton.disabled = true;
+    stopButton.disabled = true;
+    switchCameraButton.disabled = true;
+    toggleInfoButtons(false);
+    resultDisplayElement.innerHTML = '';
+    predictionHistory = [];
 
-    // 1. โหลดโมเดล
     const modelURL = URL + "model.json";
     const metadataURL = URL + "metadata.json";
 
     try {
         model = await tmImage.load(modelURL, metadataURL);
-        maxPredictions = model.getTotalClasses(); // จำนวน Classes ทั้งหมดในโมเดล
+        maxPredictions = model.getTotalClasses();
     } catch (error) {
         console.error("เกิดข้อผิดพลาดในการโหลดโมเดล:", error);
         messageElement.textContent = `เกิดข้อผิดพลาดในการโหลดโมเดล: ${error.message}`;
         messageElement.className = 'message error';
-        startButton.disabled = false; // เปิดปุ่ม Start กลับมา
+        startButton.disabled = false;
         return;
     }
 
-    // 2. ตั้งค่า Webcam
-    const flip = false; // ปรับให้ไม่กลับด้าน (สำหรับกล้องหลัง)
+    await setupCamera();
+
+    labelContainer = document.getElementById("label-container");
+    labelContainer.innerHTML = '';
+    for (let i = 0; i < maxPredictions; i++) {
+        labelContainer.appendChild(document.createElement("div"));
+    }
+
+    messageElement.textContent = 'พร้อมสำหรับการจำแนก!';
+    messageElement.className = 'message success';
+    startButton.disabled = true;
+    stopButton.disabled = false;
+    switchCameraButton.disabled = false;
+}
+
+// ตั้งค่ากล้องผ่าน getUserMedia
+async function setupCamera() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+
     const constraints = {
         video: {
-            facingMode: 'environment' // 'environment' คือกล้องหลัง, 'user' คือกล้องหน้า
+            width: { ideal: 320 },
+            height: { ideal: 240 },
+            facingMode: currentFacingMode
         }
     };
 
     try {
-        webcam = new tmImage.Webcam(200, 200, flip); // กว้าง, สูง, กลับด้าน
-        await webcam.setup(constraints); // ขออนุญาตเข้าถึงกล้องพร้อม constraints
-        await webcam.play(); // เริ่มเล่นวิดีโอจากกล้อง
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
 
-        // เพิ่ม canvas ของ webcam ลงใน DOM
-        document.getElementById("webcam").innerHTML = ''; // ล้าง div ก่อน
-        document.getElementById("webcam").appendChild(webcam.canvas);
+        videoElement = document.createElement('video');
+        videoElement.width = 320;
+        videoElement.height = 240;
+        videoElement.autoplay = true;
+        videoElement.playsInline = true;
+        videoElement.muted = true;
+        videoElement.srcObject = stream;
 
-        isPredicting = true; // เริ่มการทำนาย
-        window.requestAnimationFrame(loop); // เริ่ม loop การทำนายผล
+        const webcamDiv = document.getElementById("webcam");
+        if (!webcamDiv) throw new Error("ไม่พบ DIV #webcam");
 
+        webcamDiv.innerHTML = '';
+        webcamDiv.appendChild(videoElement);
+
+        await new Promise(resolve => {
+            videoElement.onloadedmetadata = () => {
+                videoElement.play(); // Safari/iOS ต้องการคำสั่งนี้
+                resolve();
+            };
+            setTimeout(() => {
+                console.warn("Timeout ขณะรอ metadata");
+                resolve();
+            }, 3000);
+        });
+
+        isPredicting = true;
+        window.requestAnimationFrame(loop);
     } catch (error) {
         console.error("เกิดข้อผิดพลาดในการตั้งค่ากล้อง:", error);
+        let errorMsg = 'ไม่สามารถเข้าถึงกล้องได้';
         if (error.name === 'NotAllowedError') {
-            messageElement.textContent = 'ไม่ได้รับอนุญาตให้เข้าถึงกล้อง กรุณาอนุญาตในการตั้งค่าเบราว์เซอร์ของคุณ';
+            errorMsg = 'ไม่ได้รับอนุญาตให้เข้าถึงกล้อง กรุณาอนุญาตในเบราว์เซอร์';
         } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-            messageElement.textContent = 'ไม่พบกล้องในอุปกรณ์ของคุณ';
-        } else {
-            messageElement.textContent = `เกิดข้อผิดพลาดในการตั้งค่ากล้อง: ${error.message}`;
+            errorMsg = 'ไม่พบกล้องในอุปกรณ์ของคุณ';
+        } else if (error.name === 'NotReadableError') {
+            errorMsg = 'กล้องอาจถูกใช้งานโดยแอปอื่นหรือมีปัญหาฮาร์ดแวร์';
         }
+        messageElement.textContent = errorMsg;
         messageElement.className = 'message error';
-        startButton.disabled = false; // เปิดปุ่ม Start กลับมา
-        return;
+        startButton.disabled = false;
+        stopButton.disabled = true;
+        switchCameraButton.disabled = true;
+        isPredicting = false;
+        toggleInfoButtons(false);
     }
-
-    // 3. เตรียมพื้นที่สำหรับแสดงผลลัพธ์การทำนาย
-    labelContainer = document.getElementById("label-container");
-    labelContainer.innerHTML = ''; // ล้างเนื้อหาเดิม (ถ้ามี)
-    for (let i = 0; i < maxPredictions; i++) { // สร้าง div สำหรับแต่ละ Class
-        labelContainer.appendChild(document.createElement("div"));
-    }
-
-    // *******************************************************************
-    // ** รีเซ็ตตัวแปรจับเวลาเมื่อเริ่มต้นใหม่ **
-    // *******************************************************************
-    predictionHistory = [];
-    // *****************************************************************ว**
-
-    messageElement.textContent = 'พร้อมสำหรับการจำแนก!';
-    messageElement.className = 'message success';
-    startButton.disabled = true; // ปิดปุ่ม Start
-    stopButton.disabled = false; // เปิดปุ่ม Stop
 }
 
-// Loop หลักสำหรับการทำนายผลอย่างต่อเนื่อง
+// Loop หลักสำหรับการทำนาย
 async function loop() {
-    if (!isPredicting) return; // ถ้าไม่ได้อยู่ในโหมดทำนาย ให้หยุด loop
-
-    webcam.update(); // อัปเดตเฟรมจากกล้อง
-    await predict(); // ทำนายผล
-    window.requestAnimationFrame(loop); // เรียกตัวเองซ้ำเพื่อทำซ้ำ
+    if (!isPredicting) return;
+    await predict();
+    window.requestAnimationFrame(loop);
 }
 
 // ฟังก์ชันทำนายผล
 async function predict() {
-    // ส่งเฟรมปัจจุบันจากกล้อง (webcam.canvas) เข้าสู่โมเดลเพื่อทำนายผล
-    const prediction = await model.predict(webcam.canvas);
+    if (!videoElement || videoElement.readyState < videoElement.HAVE_ENOUGH_DATA) return;
 
-    // เรียงลำดับผลลัพธ์ตามความน่าจะเป็นจากมากไปน้อย
+    const prediction = await model.predict(videoElement);
     prediction.sort((a, b) => b.probability - a.probability);
 
-    let topClassName = ''; // เก็บชื่อ Class ที่มีความน่าจะเป็นสูงสุด
-    let topProbability = 0; // เก็บค่าความน่าจะเป็นสูงสุด
+    let topClassName = '';
+    let topProbability = 0;
 
-    // แสดงผลลัพธ์
     for (let i = 0; i < maxPredictions; i++) {
         const classPrediction = prediction[i].className + ": " + (prediction[i].probability * 100).toFixed(1) + "%";
         const predictionDiv = labelContainer.childNodes[i];
 
-        if (i === 0) { // Class ที่มีค่าความน่าจะเป็นสูงสุดอยู่เสมอ
+        if (i === 0) {
             topClassName = prediction[i].className;
             topProbability = prediction[i].probability;
+            const currentTime = Date.now();
 
-            if (topProbability > 0.7) { // ปรับค่า 0.7 ได้ตามความเหมาะสมสำหรับไฮไลท์
-                predictionDiv.className = 'highlight';
-
-                // *******************************************************************
-                // ** ส่วนที่เพิ่ม/แก้ไขสำหรับ Logic การจับเวลาและการแสดงผลตามเงื่อนไข **
-                // *******************************************************************
-                const currentTime = Date.now();
-
-                // เพิ่มการทำนายปัจจุบันลงใน History (เก็บเฉพาะข้อมูลล่าสุดตามเวลาที่ต้องการ)
+            if (topProbability > 0.7) {
                 predictionHistory.push({ className: topClassName, probability: topProbability, time: currentTime });
-                // ลบข้อมูลที่เก่าเกิน REQUIRED_CONSISTENCY_TIME_MS ออกไป
-                predictionHistory = predictionHistory.filter(p => currentTime - p.time <= REQUIRED_CONSISTENCY_TIME_MS);
+                predictionDiv.className = 'highlight';
+            } else {
+                predictionHistory = [];
+                predictionDiv.className = '';
+            }
 
-                // ตรวจสอบความต่อเนื่องของ Class และความน่าจะเป็น
-                let isConsistentAndHighConfidence = true;
-                if (predictionHistory.length > 0) {
-                    // ตรวจสอบว่าทุกการทำนายใน history เป็น class เดียวกันและมีความน่าจะเป็นตามที่กำหนด
-                    for (let p of predictionHistory) {
-                        if (p.className !== topClassName || p.probability < REQUIRED_PROBABILITY) {
-                            isConsistentAndHighConfidence = false;
-                            break;
-                        }
-                    }
-                    // ตรวจสอบว่ามีข้อมูลใน History เพียงพอสำหรับระยะเวลาที่ต้องการ
-                    if (predictionHistory.length > 0 && (predictionHistory[predictionHistory.length - 1].time - predictionHistory[0].time) < REQUIRED_CONSISTENCY_TIME_MS) {
+            predictionHistory = predictionHistory.filter(p => currentTime - p.time <= REQUIRED_CONSISTENCY_TIME_MS);
+
+            let isConsistentAndHighConfidence = true;
+            if (predictionHistory.length > 0) {
+                for (let p of predictionHistory) {
+                    if (p.className !== topClassName || p.probability < REQUIRED_PROBABILITY) {
                         isConsistentAndHighConfidence = false;
+                        break;
                     }
-                } else {
-                    isConsistentAndHighConfidence = false; // ถ้าไม่มีประวัติก็ไม่ถือว่า Consistent
                 }
+                if ((predictionHistory[predictionHistory.length - 1].time - predictionHistory[0].time) < REQUIRED_CONSISTENCY_TIME_MS) {
+                    isConsistentAndHighConfidence = false;
+                }
+            } else {
+                isConsistentAndHighConfidence = false;
+            }
 
+            if (isConsistentAndHighConfidence) {
+                resultDisplayElement.className = 'important-message';
+                let showInfoButtons = false;
+                let diseaseName = '';
 
-                // Logic สำหรับการแสดงผลพิเศษ (D1, D2, D3, D4, D5 ) และหยุดการจำแนก
-                if (isConsistentAndHighConfidence) {
-                    resultDisplayElement.className = 'important-message';
-                    if (topClassName === "D2") {
-                        resultDisplayElement.innerHTML = "<h3>🚨 เป็นโรคจุดราขาว 🚨</h3>";
-                        stopCamera(); // เรียกฟังก์ชันหยุดการจำแนก
-                    } else if (topClassName === "D1") {
-                        resultDisplayElement.innerHTML = "<h3>✅ ปลอดเชื้อโรค ✅</h3>";
-                        stopCamera(); // เรียกฟังก์ชันหยุดการจำแนก
-                    } else if (topClassName === "D3") {
-                        resultDisplayElement.innerHTML = "<h3>🚨 เป็นโรคสนิม 🚨</h3>";
-                        stopCamera(); // เรียกฟังก์ชันหยุดการจำแนก
-                    } else if (topClassName === "D4") {
-                        resultDisplayElement.innerHTML = "<h3>🚨 เป็นโรคใบไหม้ 🚨</h3>";
-                        stopCamera(); // เรียกฟังก์ชันหยุดการจำแนก
-                    } else if (topClassName === "D5") {
-                        resultDisplayElement.innerHTML = "<h3>🚨 กรุณาถ่ายใหม่ 🚨</h3>";
-                        stopCamera(); // เรียกฟังก์ชันหยุดการจำแนก
-                    } else {
-                        // ถ้าเป็น Class อื่นๆ ที่เข้าเงื่อนไข 5 วินาที 90% แต่ไม่ใช่ D1/D2
-                        resultDisplayElement.innerHTML = `<h4>💡 โมเดลมั่นใจใน "${topClassName}" มากกว่า 5 วินาที!</h4><p>ความน่าจะเป็น: ${ (topProbability * 100).toFixed(1)}%</p>`;
-                        resultDisplayElement.className = 'info-message';
-                    }
+                if (topClassName === "D2") {
+                    resultDisplayElement.innerHTML = "<h3>🚨 เป็นโรคจุดราขาว 🚨</h3>";
+                    diseaseName = "จุดราขาว";
+                    showInfoButtons = true;
+                } else if (topClassName === "D4") {
+                    resultDisplayElement.innerHTML = "<h3>🚨 เป็นโรคใบไหม้ 🚨</h3>";
+                    diseaseName = "ใบไหม้";
+                    showInfoButtons = true;
+                } else if (topClassName === "D3") {
+                    resultDisplayElement.innerHTML = "<h3>🚨 เป็นโรคสนิม 🚨</h3>";
+                    diseaseName = "สนิม";
+                    showInfoButtons = true;
+                } else if (topClassName === "D1") {
+                    resultDisplayElement.innerHTML = "<h3>✅ ปลอดเชื้อโรค ✅</h3>";
+                } else if (topClassName === "D5") {
+                    resultDisplayElement.innerHTML = "<h3>🚨 กรุณาถ่ายใหม่ 🚨</h3>";
                 } else {
-                    // ถ้ายังไม่ตรงเงื่อนไข 5 วินาที 90% ก็แสดงผลลัพธ์ปกติของคุณ
-                    resultDisplayElement.className = ''; // ล้าง class ก่อน
-                    resultDisplayElement.innerHTML = `<p>กำลังรอการจำแนก... (ความน่าจะเป็นยังไม่สูงพอ หรือยังไม่ต่อเนื่อง)</p>`;
+                    resultDisplayElement.innerHTML = `<h4>💡 โมเดลมั่นใจใน "${topClassName}" มากกว่า 2 วินาที!</h4><p>ความน่าจะเป็น: ${(topProbability * 100).toFixed(1)}%</p>`;
                     resultDisplayElement.className = 'info-message';
                 }
-                // *******************************************************************
-            } else { // ถ้าความน่าจะเป็นสูงสุดไม่ถึงเกณฑ์ที่ตั้งไว้
-                predictionDiv.className = '';
-                resultDisplayElement.innerHTML = '<p>กำลังรอการจำแนก... (ความน่าจะเป็นยังไม่สูงพอ)</p>';
-                resultDisplayElement.className = 'info-message';
 
-                // *******************************************************************
-                // ** รีเซ็ตสถานะการจับเวลาเมื่อความน่าจะเป็นไม่ถึงเกณฑ์ **
-                // *******************************************************************
-                predictionHistory = [];
-                // *******************************************************************
+                stopCamera();
+                toggleInfoButtons(showInfoButtons);
+            } else {
+                resultDisplayElement.className = 'info-message';
+                if (predictionHistory.length > 0) {
+                    const timeElapsed = predictionHistory[predictionHistory.length - 1].time - predictionHistory[0].time;
+                    const remainingTime = Math.ceil((REQUIRED_CONSISTENCY_TIME_MS - timeElapsed) / 1000);
+                    resultDisplayElement.innerHTML = `<p>กำลังรอการยืนยัน "${topClassName}"...<br>ความน่าจะเป็น: ${(topProbability * 100).toFixed(1)}%<br>ต้องมั่นใจต่อเนื่องอีกประมาณ ${remainingTime} วินาที</p>`;
+                } else {
+                    resultDisplayElement.innerHTML = `<p>กำลังรอการจำแนก...<br>ความน่าจะเป็นของ "${topProbability > 0 ? topClassName : 'บางสิ่ง'}": ${(topProbability * 100).toFixed(1)}%<br>ยังไม่สูงพอ หรือยังไม่ต่อเนื่อง</p>`;
+                }
+                toggleInfoButtons(false);
             }
-        } else {
-            predictionDiv.className = '';
         }
         predictionDiv.innerHTML = classPrediction;
     }
 }
 
-// ฟังก์ชันสำหรับหยุดการทำงานของกล้องและการทำนาย
+// หยุดกล้อง
 async function stopCamera() {
-    isPredicting = false; // หยุด loop การทำนาย (สำคัญมาก)
-    if (webcam) {
-        webcam.stop(); // หยุดกล้องจริง ๆ
-        // ล้าง canvas ของกล้อง
-        const webcamDiv = document.getElementById("webcam");
-        if (webcamDiv) {
-            webcamDiv.innerHTML = '<p>กล้องหยุดทำงานแล้ว</p>'; // เพิ่มข้อความแจ้งสถานะ
-        }
+    isPredicting = false;
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
     }
-    labelContainer.innerHTML = ''; // ล้างผลการทำนาย
-    // resultDisplayElement.innerHTML = ''; // ไม่ล้างผลลัพธ์ D1/D2 ทิ้งทันที แต่ให้คงไว้
-    messageElement.textContent = 'กล้องและโมเดลหยุดทำงานแล้ว'; // ข้อความสถานะหลัก
+    if (videoElement) {
+        videoElement.srcObject = null;
+    }
+    const webcamDiv = document.getElementById("webcam");
+    if (webcamDiv) {
+        webcamDiv.innerHTML = '<p>กล้องหยุดทำงานแล้ว</p>';
+    }
+    labelContainer.innerHTML = '';
+    messageElement.textContent = 'กล้องและโมเดลหยุดทำงานแล้ว';
     messageElement.className = 'message';
-    startButton.disabled = false; // เปิดปุ่ม Start
-    stopButton.disabled = true; // ปิดปุ่ม Stop
-
-    // *******************************************************************
-    // ** รีเซ็ตตัวแปรจับเวลาเมื่อหยุดกล้อง **
-    // *******************************************************************
+    startButton.disabled = false;
+    stopButton.disabled = true;
+    switchCameraButton.disabled = true;
     predictionHistory = [];
-    // *******************************************************************
 }
 
+// สลับกล้อง
+async function switchCamera() {
+    currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+    isPredicting = false;
+    messageElement.textContent = 'กำลังสลับกล้อง...';
+    messageElement.className = 'message';
+    startButton.disabled = true;
+    stopButton.disabled = true;
+    switchCameraButton.disabled = true;
 
-// เพิ่ม Event Listener ให้กับปุ่ม
-startButton.addEventListener('click', init); // คลิก Start -> เรียก init()
-stopButton.addEventListener('click', stopCamera); // คลิก Stop -> เรียก stopCamera()
-
-// จัดการเมื่อผู้ใช้ปิดหน้าเว็บ ให้หยุดกล้อง
-window.addEventListener('beforeunload', () => {
-    if (webcam) {
-        webcam.stop();
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
     }
+    if (videoElement) {
+        videoElement.srcObject = null;
+        document.getElementById("webcam").innerHTML = '';
+    }
+
+    await setupCamera();
+
+    messageElement.textContent = 'พร้อมสำหรับการจำแนก!';
+    messageElement.className = 'message success';
+    startButton.disabled = true;
+    stopButton.disabled = false;
+    switchCameraButton.disabled = false;
+}
+
+// Event Listeners
+startButton.addEventListener('click', init);
+stopButton.addEventListener('click', stopCamera);
+switchCameraButton.addEventListener('click', switchCamera);
+
+// ปุ่ม "สาเหตุ" และ "รักษา"
+causeButton.addEventListener('click', () => {
+    const resultText = resultDisplayElement.querySelector('h3')?.textContent.trim() || '';
+    let url = 'bad.html';
+
+    if (resultText.includes('จุดราขาว')) {
+        url = 'bad2.html';
+    } else if (resultText.includes('สนิม')) {
+        url = 'bad3.html';
+    } else if (resultText.includes('ใบไหม้')) {
+        url = 'bad4.html';
+    }
+
+    const diseaseName = resultText.replace(/[🚨✅]/g, '').trim();
+    window.open(`${url}?disease=${encodeURIComponent(diseaseName)}`, '_blank');
+});
+
+treatmentButton.addEventListener('click', () => {
+    const resultText = resultDisplayElement.querySelector('h3')?.textContent.trim() || '';
+    let url = 'health.html';
+
+    if (resultText.includes('จุดราขาว')) {
+        url = 'health2.html';
+    } else if (resultText.includes('สนิม')) {
+        url = 'health3.html';
+    } else if (resultText.includes('ใบไหม้')) {
+        url = 'health4.html';
+    }
+
+    const diseaseName = resultText.replace(/[🚨✅]/g, '').trim();
+    window.open(`${url}?disease=${encodeURIComponent(diseaseName)}`, '_blank');
+});
+
+// เมื่อโหลดหน้าเว็บเสร็จให้ซ่อนปุ่ม "สาเหตุ" และ "รักษา"
+window.addEventListener('DOMContentLoaded', () => {
+    toggleInfoButtons(false);
+    stopButton.disabled = true;
+    switchCameraButton.disabled = true;
+});
+
+// ปิดกล้องเมื่อออกจากหน้าเว็บ
+window.addEventListener('beforeunload', () => {
+    stopCamera();
 });

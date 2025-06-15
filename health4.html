@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>การรักษาโรคใบไหม้</title>
+       <style>
+
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #f4f7f6;
+            position: relative;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        /* รูปภาพเนื้อหา */
+        .content-image {
+            max-width: 25%;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* ปุ่มย้อนกลับ (มุมซ้ายบน) */
+        .back-button {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            background-color: transparent;
+        }
+
+        .back-button img {
+            width: 60px;
+            height: 60px;
+            transition: transform 0.2s ease;
+        }
+        .back-button img:hover {
+            transform: scale(1.1);
+        }
+
+        /* ปุ่มปิดหน้าเว็บ (มุมขวาบน) */
+        .close-button {
+            position: absolute;
+            top: 40px;
+            right: 40px;
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+        }
+
+        .close-button img {
+            width: 60px;
+            height: 60px;
+            transition: transform 0.2s ease;
+        }
+
+        .close-button img:hover {
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- หัวข้อ -->
+    <h1>การรักษาโรคใบไหม้</h1>
+
+    <!-- รูปภาพแทนเนื้อหา -->
+    <img src="13.png" alt="การรักษาโรคใบไหม้" class="content-image">
+
+    <!-- ปุ่มย้อนกลับ -->
+    <a href="AI.html" class="back-button">
+        <img src="home.png" alt="ย้อนกลับไปหน้ากล้อง">
+    </a>
+
+    <!-- ปุ่มปิดหน้าเว็บ -->
+    <button onclick="window.close()" class="close-button">
+        <img src="11.png" alt="ปิดหน้านี้">
+    </button>
+
+</body>
+</html>
